@@ -1,4 +1,4 @@
-# quantum-research
+# quantum-research-colab
 
 - Quantum reinforcement learning research
 - Use of Variational Circuits on deep reinforcement learning algorithm (DQN) with OpenAI gym environments (cartpole and blackjack)
