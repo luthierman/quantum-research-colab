@@ -8,7 +8,7 @@ import random
 import torch
 
 
-L = 2
+L = 3
 M = 2
 n = 4
 dev = qml.device("default.qubit", wires=n)
@@ -44,7 +44,7 @@ def block(parameters,n, L, M):
     for i in range(n):
       U = U_m.pop()
       U(parameters[l,n-i-1], wires=n-i-1).inv()
-@qml.qnode(dev)
+@qml.qnode(dev, interface='torch')
 def circuit(inputs, weights):
   qml.AngleEmbedding(inputs*(np.pi/4), 
                      wires = range(n))
@@ -61,6 +61,7 @@ class Quantum_Net(nn.Module):
             
         self.use_cuda = use_cuda
         weight_shapes = {"weights": thetas.shape}
+        self.circuit = circuit
         self.qlayer = qml.qnn.TorchLayer(circuit, weight_shapes).to('cuda' if use_cuda else 'cpu')
         self.linear1 = nn.Linear(n, 2).to('cuda' if use_cuda else 'cpu')
         nn.init.xavier_normal_(self.linear1.weight)
@@ -75,5 +76,10 @@ class Quantum_Net(nn.Module):
         x = F.relu(self.qlayer(x))
         return self.linear1(x)
 
-
+    def print_circuit(self):
+        drawer = qml.draw(self.circuit)(torch.tensor([0,0,0,0]),
+                                        thetas)
+        print(drawer)
+thetas = initialize(n,L,M)
 qnet = Quantum_Net(thetas, True)
+
