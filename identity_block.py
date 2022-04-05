@@ -71,6 +71,7 @@ class Quantum_Net(nn.Module):
         self.qlayer.load_state_dict(new_state_dict)
 
     def forward(self, x):
+        x = torch.tensor(x)
         x = x.float().to('cuda' if self.use_cuda else 'cpu')
         x.requires_grad = True
         x = F.relu(self.qlayer(x))
@@ -85,6 +86,5 @@ class Quantum_Net(nn.Module):
         drawer = qml.draw_mpl(self.circuit, show_all_wires=True)(torch.tensor([0,0,0,0]),
                                         thetas)
         print(drawer)
-thetas = initialize(n,L,M)
 qnet = Quantum_Net(thetas, True)
 
