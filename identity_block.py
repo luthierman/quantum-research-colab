@@ -8,7 +8,7 @@ import random
 import torch
 
 
-L = 3
+L = 2
 M = 2
 n = 4
 dev = qml.device("default.qubit", wires=n)
@@ -77,7 +77,12 @@ class Quantum_Net(nn.Module):
         return self.linear1(x)
 
     def print_circuit(self):
-        drawer = qml.draw(self.circuit)(torch.tensor([0,0,0,0]),
+        drawer = qml.draw(self.circuit, show_all_wires=True)(torch.tensor([0,0,0,0]),
+                                        thetas)
+        print(drawer)
+
+    def print_circuit_mpl(self):
+        drawer = qml.draw_mpl(self.circuit, show_all_wires=True)(torch.tensor([0,0,0,0]),
                                         thetas)
         print(drawer)
 thetas = initialize(n,L,M)
