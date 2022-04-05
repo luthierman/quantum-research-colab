@@ -1,11 +1,12 @@
-
+import torch
 import torch.cuda
 import torch.nn as nn
 import torch.nn.functional as F
-import torch
 import pennylane as qml
 from pennylane import numpy as np 
 import random
+import torch
+
 
 L = 2
 M = 2
@@ -26,7 +27,7 @@ def initialize(n,L,M):
       for i in range(n):
         parameters[m,l,n-i-1] = stack.pop()
   return qml.math.concatenate(parameters)
-
+thetas = initialize(n,L,M)
 def block(parameters,n, L, M):
   U_m = []
   ops = [qml.RX, qml.RY, qml.RZ]
@@ -44,12 +45,7 @@ def block(parameters,n, L, M):
       U = U_m.pop()
       U(parameters[l,n-i-1], wires=n-i-1).inv()
 @qml.qnode(dev)
-
 def circuit(inputs, weights):
-  L = 2
-  M = 2
-  n = 4
-
   qml.AngleEmbedding(inputs*(np.pi/4), 
                      wires = range(n))
   for i in range(0,2*M*L,2*L):
@@ -58,11 +54,15 @@ def circuit(inputs, weights):
   return [qml.expval(qml.PauliZ(i)) for i in range(n)]
 
 class Quantum_Net(nn.Module):
-    def __init__(self, thetas):
+    def __init__(self, thetas, use_cuda=False):
         super(Quantum_Net, self).__init__()
+        if use_cuda and not torch.cuda.is_available():
+            raise Exception("Asked for CUDA but GPU not found")
+            
+        self.use_cuda = use_cuda
         weight_shapes = {"weights": thetas.shape}
-        self.qlayer = qml.qnn.TorchLayer(circuit, weight_shapes)
-        self.linear1 = nn.Linear(n, 2)
+        self.qlayer = qml.qnn.TorchLayer(circuit, weight_shapes).to('cuda' if use_cuda else 'cpu')
+        self.linear1 = nn.Linear(n, 2).to('cuda' if use_cuda else 'cpu')
         nn.init.xavier_normal_(self.linear1.weight)
         self.linear1.bias.data.zero_()
         new_state_dict = self.qlayer.state_dict()
@@ -70,8 +70,10 @@ class Quantum_Net(nn.Module):
         self.qlayer.load_state_dict(new_state_dict)
 
     def forward(self, x):
+        x = x.float().to('cuda' if self.use_cuda else 'cpu')
+        x.requires_grad = True
         x = F.relu(self.qlayer(x))
         return self.linear1(x)
-    
-thetas = initialize(n,L,M)
-qnet = Quantum_Net(thetas)
+
+
+qnet = Quantum_Net(thetas, True)
