@@ -1,6 +1,12 @@
+
+import torch.cuda
+import torch.nn as nn
+import torch.nn.functional as F
+import torch
 import pennylane as qml
 from pennylane import numpy as np 
 import random
+
 L = 2
 M = 2
 n = 4
@@ -50,11 +56,22 @@ def circuit(inputs, weights):
     block(weights[i:i+2*L],n, L, M)
   
   return [qml.expval(qml.PauliZ(i)) for i in range(n)]
+
+class Quantum_Net(nn.Module):
+    def __init__(self, thetas):
+        super(Quantum_Net, self).__init__()
+        weight_shapes = {"weights": thetas.shape}
+        self.qlayer = qml.qnn.TorchLayer(circuit, weight_shapes)
+        self.linear1 = nn.Linear(n, 2)
+        nn.init.xavier_normal_(self.linear1.weight)
+        self.linear1.bias.data.zero_()
+        new_state_dict = self.qlayer.state_dict()
+        new_state_dict['weights'] = torch.tensor(thetas)
+        self.qlayer.load_state_dict(new_state_dict)
+
+    def forward(self, x):
+        x = F.relu(self.qlayer(x))
+        return self.linear1(x)
+    
 thetas = initialize(n,L,M)
-print(qml.draw(circuit)(np.array([0.0,0.0,0.0,0.0]), thetas))
-weight_shapes = {"weights": thetas.shape}
-qlayer = qml.qnn.TorchLayer(circuit, weight_shapes)
-model = torch.nn.Sequential(qlayer)
-new_state_dict = model.state_dict()
-new_state_dict['0.weights'] = torch.tensor(thetas)
-model.load_state_dict(new_state_dict)
+qnet = Quantum_Net(thetas)
